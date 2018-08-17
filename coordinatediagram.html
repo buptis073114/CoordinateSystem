@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title></title>
+    <style type="text/css">
+        #canvasbottom {
+            border: thin solid red;
+        }
+
+        #canvastop {
+            border: thin solid red;
+        }
+
+        .container {
+            position: relative;
+        }
+
+        .container canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+
+        .down {
+            float: left;
+            margin: 40px 10px;
+        }
+    </style>
+
+    <script type="text/javascript" src="../bootstrap/js/html2canvas.min.js"></script>
+
+</head>
+
+<body>
+
+
+<div class="container">
+    <canvas id="canvasbottom" width="800" height="12000"></canvas>
+    <!--<canvas id="canvas2" width="800" height="12000"></canvas>-->
+    <!--<canvas id="canvas3" width="800" height="12000"></canvas>-->
+    <canvas id="canvastop" width="800" height="12000"></canvas>
+</div>
+
+<!--<div><a class="down" href="" download="downImg">下载</a></div>-->
+
+
+</body>
+<!--<script type="text/javascript">-->
+    <!--//直接选择要截图的dom，就能截图，但是因为canvas的原因，生成的图片模糊-->
+    <!--//html2canvas(document.querySelector('div')).then(function(canvas) {-->
+    <!--//    document.body.appendChild(canvas);-->
+    <!--//});-->
+    <!--//创建一个新的canvas-->
+    <!--var canvas2 = document.createElement("canvas");-->
+    <!--var-->
+        <!--_canvas = document.querySelector('div');-->
+    <!--var w = parseInt(window.getComputedStyle(_canvas).width);-->
+    <!--var h = parseInt(window.getComputedStyle(_canvas).height);-->
+    <!--//将canvas画布放大若干倍，然后盛放在较小的容器内，就显得不模糊了-->
+    <!--canvas2.width = w * 2;-->
+    <!--canvas2.height = h * 2;-->
+    <!--canvas2.style.width = w + "px";-->
+    <!--canvas2.style.height = h + "px";-->
+    <!--//可以按照自己的需求，对context的参数修改,translate指的是偏移量-->
+    <!--//  var context = canvas.getContext("2d");-->
+    <!--//  context.translate(0,0);-->
+    <!--var context = canvas2.getContext("2d");-->
+    <!--context.scale(2, 2);-->
+    <!--html2canvas(document.querySelector('div'), {canvas: canvas2}).then(function (canvas) {-->
+        <!--//document.body.appendChild(canvas);-->
+        <!--//canvas转换成url，然后利用a标签的download属性，直接下载，绕过上传服务器再下载-->
+        <!--document.querySelector(".down").setAttribute('href', canvas.toDataURL());-->
+    <!--});-->
+<!--</script>-->
+<script type="text/javascript">
+
+    var pointdata = [
+        {x: 1, y: 1},
+        {x: 2, y: 2},
+        {x: 10, y: 10},
+        {x: 20, y: 20},
+        {x: 30, y: 30},
+        {x: 40, y: 35},
+        {x: 50, y: 40},
+        {x: 60, y: 60},
+        {x: 70, y: 70},
+        {x: 60, y: 80},
+        {x: 50, y: 100}
+    ];
+
+    var canvasbottom;
+    var contextbottom;
+
+
+    canvasbottom = document.getElementById("canvasbottom");
+    contextbottom = canvasbottom.getContext("2d");
+
+
+    var canvastop;
+    var contexttop;
+
+    //    window.onload = function() {
+    canvastop = document.getElementById("canvastop");
+    contexttop = canvastop.getContext("2d");
+    //
+    //
+    //
+    //
+    //
+    canvastop.onmousemove = onMouseMove;
+    //    };
+
+    //当前选中的圆圈
+    var previousSelectedCircle;
+    var circle;
+
+
+    //鼠标移动时动态显示的虚线
+    var dynamiclines = [];
+
+    //鼠标移动事件
+
+    //绘制tooltip提示文字
+    function drawToolTip(txtLoc, x, y) {
+        contexttop.save();
+        var padding = 3;
+        var font = "16px arial";
+        contexttop.font = font;
+        contexttop.textBaseline = 'bottom';
+        contexttop.fillStyle = 'yellow';
+        //绘制ToolTip背景
+        var width = contexttop.measureText(txtLoc).width;
+        var height = parseInt(font, 10);
+//        contexttop.fillRect(x, y - height, width + padding * 2, height + padding * 2);
+        contexttop.fillRect(x, y, width + padding * 2, height + padding * 2);
+
+        //绘制ToolTip文字
+        contexttop.fillStyle = '#000';
+        contexttop.fillText(txtLoc, x + padding, y + height + padding);
+        contexttop.restore();
+    }
+
+    //    var canvas = document.getElementById("canvas");
+    //    var contextbottom = canvas.getContext("2d");
+    //水平标尺与canvas的距离
+    var HORIZONTAL_AXIS_MARGIN = 50;
+    //竖直标尺与canvas的距离
+    var VERTICAL_AXIS_MARGIN = 50;
+    //标尺起点
+    var AXIS_ORIGIN = {
+        x: HORIZONTAL_AXIS_MARGIN,
+        y: VERTICAL_AXIS_MARGIN
+    };
+    //坐标的顶部
+    var AXIS_TOP = VERTICAL_AXIS_MARGIN;
+    //坐标的长度
+    var AXIS_RIGHT = canvasbottom.width - HORIZONTAL_AXIS_MARGIN;
+    //小标记的间隔
+    var HORIZONTAL_TICK_SPACING = 10;
+    var VERTICAL_TICK_SPACING = 10;
+    //坐标标记的范围
+    var AXIS_WIDTH = AXIS_RIGHT - AXIS_ORIGIN.x;
+    var AXIS_HEIGHT = canvasbottom.height - AXIS_ORIGIN.y - AXIS_TOP;
+    //纵向标记数值
+    var NUM_VERTICAL_TICKS = AXIS_HEIGHT / VERTICAL_TICK_SPACING;
+    //横向标记数值
+    var NUM_HORIZONTAL_TICKS = AXIS_WIDTH / HORIZONTAL_TICK_SPACING;
+    var TICK_WIDTH = 10;
+    //标牌和坐标轴之间的距离
+    var SPACE_BETWEEN_ABELS_AND_AXIS = 20;
+
+
+    var Dotcolor = "#333";
+
+
+    function onMouseMove(e) {
+
+
+//        console.time('drawLineDash testTime');//testTime为计时器的名称
+
+// 清除之前选择的圆圈
+        if (previousSelectedCircle != null) {
+            previousSelectedCircle.isSelected = false;
+            previousSelectedCircle = null;
+        }
+
+        // 取得画布上被单击的点
+        var clickX = e.pageX - canvastop.offsetLeft - 8;
+        var clickY = e.pageY - canvastop.offsetTop - 8;
+
+
+
+        contexttop.clearRect(0, 0, canvastop.width, canvastop.height);
+
+
+
+        // 查找被单击的圆圈
+        for (var i = 0; i < pointdata.length; i++) {
+            var x = getCoordX(pointdata[i].x);
+            var y = getCoordY(pointdata[i].y);
+
+
+            var distanceFromCenter = Math.sqrt(Math.pow(x - clickX, 2)
+                + Math.pow(y - clickY, 2));
+            if (distanceFromCenter <= 4) {
+//                var circle=[];
+//                circle.point = {x: x, y: y};
+                previousSelectedCircle = pointdata[i];
+                //选择新圆圈
+                previousSelectedCircle.isSelected = true;
+
+                contexttop.beginPath(); //增
+                contexttop.lineWidth = 1.0;
+                contexttop.setLineDash([25, 0]);
+                contexttop.fillStyle = Dotcolor;
+                contexttop.moveTo(x, y);
+                contexttop.arc(x, y, 6, 0, Math.PI * 2, true);//绘制数据线上的点
+                contexttop.fill();
+//                contexttop.stroke();
+                contexttop.stroke();
+                contexttop.closePath();
+
+                //停止搜索
+                break;
+            }
+        }
+        //更新显示，重绘
+//        drawviews();
+
+
+
+//        console.log("clearRect");
+
+        if (clickX >= AXIS_ORIGIN.x &&
+            clickX <= (canvastop.width - AXIS_ORIGIN.x) &&
+            clickY >= AXIS_ORIGIN.y &&
+            clickY <= (canvastop.height - AXIS_ORIGIN.y)) {
+
+            contexttop.beginPath(); //增
+            contexttop.setLineDash([5, 3]);
+            contexttop.lineWidth = 0.5;
+
+            contexttop.moveTo(clickX, AXIS_ORIGIN.y);
+            contexttop.lineTo(clickX, canvastop.height - AXIS_ORIGIN.y);
+            contexttop.stroke();
+
+            contexttop.beginPath(); //增
+            contexttop.moveTo(AXIS_ORIGIN.x, clickY);
+            contexttop.lineTo(canvastop.width, clickY);
+            contexttop.stroke();
+            contexttop.setLineDash([25, 0]);
+
+
+
+            contexttop.fillStyle = "black";
+//            contexttop.textAlign = "center";
+            contexttop.textBaseline = "top";
+            //动态显示纵坐标
+            contexttop.fillText((clickY-AXIS_ORIGIN.y)/10,
+                AXIS_ORIGIN.x - SPACE_BETWEEN_ABELS_AND_AXIS,
+                clickY);
+            //动态显示横坐标
+            contexttop.fillText((clickX-AXIS_ORIGIN.x)/10,
+                clickX,
+                AXIS_ORIGIN.y-SPACE_BETWEEN_ABELS_AND_AXIS);
+
+
+
+
+        }
+        if (previousSelectedCircle != null) {
+//            console.log("弹框");
+            drawToolTip("坐标：" + previousSelectedCircle.x + " and " + previousSelectedCircle.y, clickX, clickY);
+        }
+//        console.timeEnd('drawLineDash testTime');
+    }
+
+
+    function drawAxes() {
+        contextbottom.save();
+        contextbottom.lineWidth = 1.0;
+        contextbottom.fillStyle = "rgba(100, 140, 230, 0.8)";
+        contextbottom.strokeStyle = "navy";
+        drawHorizontalAxis();
+        drawVerticalAxis();
+        contextbottom.lineWidth = 0.5;
+        contextbottom.strokeStyle = "navy";
+        contextbottom.strokeStyle = "darkred";
+        drawVerticalAxisTicks();
+        drawHorizontalAxisTicks();
+        contextbottom.restore();
+    }
+
+    //绘制水平的小标
+    function drawHorizontalAxisTicks() {
+        var deltaY;
+        for (var i = 1; i < NUM_HORIZONTAL_TICKS; i++) {
+            contextbottom.beginPath();
+            //判断画的是大坐标还是短坐标
+            if (i % 5 === 0) {
+                deltaY = TICK_WIDTH;
+            } else {
+                deltaY = TICK_WIDTH / 2
+            }
+            contextbottom.moveTo(AXIS_ORIGIN.x + i * HORIZONTAL_TICK_SPACING,
+                AXIS_ORIGIN.y - deltaY);
+            contextbottom.lineTo(AXIS_ORIGIN.x + i * HORIZONTAL_TICK_SPACING,
+                AXIS_ORIGIN.y + deltaY);
+            contextbottom.stroke();
+        }
+    }
+
+    //绘制数值的小标
+    function drawVerticalAxisTicks() {
+        var deltaX;
+//        console.log("NUM_VERTICAL_TICKS is " + NUM_VERTICAL_TICKS);
+
+        for (var i = 1; i < NUM_VERTICAL_TICKS; i++) {
+            contextbottom.beginPath();
+            if (i % 5 === 0) {
+                deltaX = TICK_WIDTH;
+            } else {
+                deltaX = TICK_WIDTH / 2;
+            }
+//            console.log("AXIS_ORIGIN.x + deltaX is " + AXIS_ORIGIN.x + deltaX);
+//
+//            console.log("sss is " + AXIS_ORIGIN.y + i * VERTICAL_TICK_SPACING);
+
+            contextbottom.moveTo(AXIS_ORIGIN.x - deltaX,
+                AXIS_ORIGIN.y + i * VERTICAL_TICK_SPACING);
+            contextbottom.lineTo(AXIS_ORIGIN.x + deltaX,
+                AXIS_ORIGIN.y + i * VERTICAL_TICK_SPACING);
+            contextbottom.stroke();
+        }
+    }
+
+    //画竖直线
+    function drawVerticalAxis() {
+        contextbottom.beginPath();
+        contextbottom.moveTo(AXIS_ORIGIN.x, canvasbottom.height - AXIS_ORIGIN.y);
+        contextbottom.lineTo(AXIS_ORIGIN.x, AXIS_TOP);
+        contextbottom.stroke();
+    }
+
+    //画水平线
+    function drawHorizontalAxis() {
+        contextbottom.beginPath();
+        contextbottom.moveTo(AXIS_ORIGIN.x, AXIS_ORIGIN.y);
+        contextbottom.lineTo(AXIS_RIGHT, AXIS_ORIGIN.y);
+        contextbottom.stroke();
+    }
+
+    //绘制标注
+    function drawAxisLabels() {
+        contextbottom.fillStyle = "blue";
+        drawHorizontalAxisLabels();
+        drawVerticalAxisLabels();
+    }
+
+    //绘制竖直轴标注
+
+    function drawVerticalAxisLabels() {
+        contextbottom.textAlign = "center";
+        contextbottom.textBaseline = "top";
+        for (var i = 0; i <= NUM_HORIZONTAL_TICKS; i++) {
+            if (i % 5 === 0) {
+                contextbottom.fillText(i,
+                    AXIS_ORIGIN.x + i * HORIZONTAL_TICK_SPACING,
+                    AXIS_ORIGIN.y - SPACE_BETWEEN_ABELS_AND_AXIS);
+            }
+        }
+    }
+
+    //绘制水平轴标注
+
+    function drawHorizontalAxisLabels() {
+        contextbottom.textAlign = "center";
+        contextbottom.textBaseline = "middle";
+        for (var i = 0; i <= NUM_VERTICAL_TICKS; i++) {
+            if (i % 5 === 0) {
+                contextbottom.fillText(i + 'm',
+                    AXIS_ORIGIN.x - SPACE_BETWEEN_ABELS_AND_AXIS,
+                    AXIS_ORIGIN.y + i * VERTICAL_TICK_SPACING);
+            }
+        }
+    }
+
+    function drawGrid(color, stepx, stepy) {
+        contextbottom.save();
+        contextbottom.strokeStyle = color;
+        contextbottom.fillStyle = '#ffffff';
+        contextbottom.lineWidth = 0.5;
+        contextbottom.fillRect(0, 0, contextbottom.canvas.width, contextbottom.canvas.height);
+        for (var i = stepx + 0.5; i < contextbottom.canvas.width; i += stepx) {
+            contextbottom.beginPath();
+            contextbottom.moveTo(i, 0);
+            contextbottom.lineTo(i, contextbottom.canvas.height);
+            contextbottom.stroke();
+        }
+        for (var i = stepy + 0.5; i < contextbottom.canvas.height; i += stepy) {
+            contextbottom.beginPath();
+            contextbottom.moveTo(0, i);
+            contextbottom.lineTo(contextbottom.canvas.width, i);
+            contextbottom.stroke();
+        }
+        contextbottom.restore();
+    }
+
+
+    function getCoordX(x) {//下标从1开始 不是从0开始
+        return x * 10 + AXIS_ORIGIN.x;
+    }
+
+    //横坐标X 随ptindex 获得
+    function getCoordY(y) {
+        return y * 10 + AXIS_ORIGIN.y;
+//        return this.can.height - padding - y;
+    }
+
+    function drawpoint(pointdata) {
+        for (var i = 0; i < pointdata.length; i++) {
+            var x = getCoordX(pointdata[i].x);
+            var y = getCoordY(pointdata[i].y);
+            contextbottom.fillStyle = Dotcolor;
+            contextbottom.moveTo(x, y);
+            contextbottom.arc(x, y, 3, 0, Math.PI * 2, true);//绘制数据线上的点
+            contextbottom.fill();
+        }
+
+
+    }
+
+    function drawline(pointdata) {
+        var x = getCoordX(pointdata[0].x);
+        var y = getCoordY(pointdata[0].y);
+        contextbottom.moveTo(x, y);
+
+        for (var i = 1; i < pointdata.length; i++) {
+            var movex = getCoordX(pointdata[i].x);
+            var movey = getCoordY(pointdata[i].y);
+            contextbottom.lineTo(movex, movey);
+            contextbottom.stroke();
+        }
+    }
+
+
+    //    drawline(pointdata);
+    /*
+     *根据已知点获取第i个控制点的坐标
+     *param ps	已知曲线将经过的坐标点
+     *param i	第i个坐标点
+     *param a,b	可以自定义的正数
+     */
+    function getCtrlPoint(ps, i, a, b) {
+        if (!a || !b) {
+            a = 0.25;
+            b = 0.25;
+        }
+        //处理两种极端情形
+        if (i < 1) {
+            var pAx = ps[0].x + (ps[1].x - ps[0].x) * a;
+            var pAy = ps[0].y + (ps[1].y - ps[0].y) * a;
+        } else {
+            var pAx = ps[i].x + (ps[i + 1].x - ps[i - 1].x) * a;
+            var pAy = ps[i].y + (ps[i + 1].y - ps[i - 1].y) * a;
+        }
+        if (i > ps.length - 3) {
+            var last = ps.length - 1;
+            var pBx = ps[last].x - (ps[last].x - ps[last - 1].x) * b;
+            var pBy = ps[last].y - (ps[last].y - ps[last - 1].y) * b;
+        } else {
+            var pBx = ps[i + 1].x - (ps[i + 2].x - ps[i].x) * b;
+            var pBy = ps[i + 1].y - (ps[i + 2].y - ps[i].y) * b;
+        }
+        return {
+            pA: {x: pAx, y: pAy},
+            pB: {x: pBx, y: pBy}
+        }
+    }
+
+
+    function drawcurve(point) {
+        contextbottom.strokeStyle = "black";
+        contextbottom.lineWidth = 1;
+        contextbottom.beginPath();
+        contextbottom.font = "20px SimSun";
+        contextbottom.fillStyle = "#595096";
+        for (i = 0; i < point.length; i++) {
+            if (i === 0) {
+                contextbottom.moveTo(point[i].x, point[i].y);
+            } else {//注意是从1开始
+                var ctrlP = getCtrlPoint(point, i - 1);
+                contextbottom.bezierCurveTo(ctrlP.pA.x, ctrlP.pA.y, ctrlP.pB.x, ctrlP.pB.y, point[i].x, point[i].y);
+                //ctx.fillText("("+point[i].x+","+point[i].y+")",point[i].x,point[i].y);
+            }
+        }
+        contextbottom.stroke();
+    }
+
+
+    var newpointdata = new Array();
+
+    for (var inter = 0; inter < pointdata.length; inter++) {
+        var interx = getCoordX(pointdata[inter].x);
+        var intery = getCoordY(pointdata[inter].y);
+        var newiterater = {x: interx, y: intery};
+        newpointdata.push(newiterater)
+    }
+
+
+    function drawviews() {
+
+        // 清除画布，准备绘制
+        // 启动计时器
+        console.time('testTime');//testTime为计时器的名称
+        contextbottom.clearRect(0, 0, canvasbottom.width, canvasbottom.height);
+        // 停止计时，输出时间
+        console.timeEnd('testTime');
+
+
+        // 启动计时器
+        console.time('drawGrid testTime');//testTime为计时器的名称
+        contextbottom.font = "13px Arial";
+        contextbottom.shadowColor = "rgba(100, 140, 230, 0.8)";
+        contextbottom.shadowOffsetX = 0;
+        contextbottom.shadowOffsetY = 0;
+        contextbottom.shadowBlur = 0;
+
+        drawGrid("lightgray", 100, 100);
+
+        // 停止计时，输出时间
+        console.timeEnd('drawGrid testTime');
+
+        // 启动计时器
+        console.time('drawAxes testTime');//testTime为计时器的名称
+        contextbottom.shadowColor = "rgba(100, 140, 230, 0.8)";
+        contextbottom.shadowOffsetX = 3;
+        contextbottom.shadowOffsetY = 3;
+        contextbottom.shadowBlur = 5;
+        drawAxes();
+        // 停止计时，输出时间
+        console.timeEnd('drawAxes testTime');
+
+
+        // 启动计时器
+        console.time('drawAxisLabels testTime');//testTime为计时器的名称
+        drawAxisLabels();
+        // 停止计时，输出时间
+        console.timeEnd('drawAxisLabels testTime');
+        // 启动计时器
+        console.time('drawpoint testTime');//testTime为计时器的名称
+        drawpoint(pointdata);
+        // 停止计时，输出时间
+        console.timeEnd('drawpoint testTime');
+
+
+        // 启动计时器
+        console.time('drawcurve testTime');//testTime为计时器的名称
+        drawcurve(newpointdata);
+        // 停止计时，输出时间
+        console.timeEnd('drawcurve testTime');
+    }
+
+    //更新显示，重绘圆圈
+    drawviews();
+
+</script>
+
+</html>
