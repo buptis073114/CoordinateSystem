@@ -24,7 +24,7 @@ var pointdata = [
 
 
 
-donate：
+donate：（打赏幸苦费）
 ![image](https://github.com/buptis073114/TestAndroidJNI/blob/master/1130108806.jpg)
 ![image](https://github.com/buptis073114/TestAndroidJNI/blob/master/1381875294.jpg)
 ![image](https://github.com/buptis073114/TestAndroidJNI/blob/master/77042545.jpg)
